@@ -1,73 +1,86 @@
+from dataclasses import dataclass
 import socket
 import threading
 
 import logging
+from typing import Tuple
 
-PORT = 14100
 
-# [id] = addr
-PEERS = {}
+@dataclass
+class Args:
+    port: int
+
+
+@dataclass
+class Ctx:
+    sock: socket.socket
+    peers: dict[str, Tuple[str, int]]
 
 
 def address(addr: str, port: int):
     return f"{addr}:{port}"
 
 
-def signal_shared(sock: socket.socket):
-    peer1_addr = PEERS["peer1"]
-    peer2_addr = PEERS["peer2"]
+def signal_shared(ctx: Ctx):
+    peer1_addr = ctx.peers["peer1"]
+    peer2_addr = ctx.peers["peer2"]
 
     peer1_address = address(*peer1_addr)
     peer2_address = address(*peer2_addr)
 
-    sock.sendto(f"SHARED peer2 {peer2_address}".encode(), peer1_addr)
+    ctx.sock.sendto(f"SHARED peer2 {peer2_address}".encode(), peer1_addr)
     logging.info(f"peer peer1{peer1_addr} is signalled shared")
 
-    sock.sendto(f"SHARED peer1 {peer1_address}".encode(), peer2_addr)
+    ctx.sock.sendto(f"SHARED peer1 {peer1_address}".encode(), peer2_addr)
     logging.info(f"peer peer2{peer2_addr} is signalled shared")
 
 
-def handle_share(sock, addr, message):
+def handle_share(ctx: Ctx, addr, message):
     id = message.split()[1]
 
-    PEERS[id] = addr
+    ctx.peers[id] = addr
     logging.info(f"{id} registered from {addr}")
 
-    if "peer1" in PEERS and "peer2" in PEERS:
-        signal_shared(sock)
+    if "peer1" in ctx.peers and "peer2" in ctx.peers:
+        signal_shared(ctx)
 
 
-def handle_leave(addr, message):
+def handle_leave(ctx: Ctx, message):
     id = message.split()[1]
 
-    if id in PEERS:
-        peer_addr = PEERS[id]
+    if id in ctx.peers:
+        peer_addr = ctx.peers[id]
         logging.info(f"peer {id}{peer_addr} deleted")
-        del PEERS[id]
+        del ctx.peers[id]
     else:
         logging.warning(f"peer {id} does not exist")
 
 
-def handle(sock: socket.socket):
+def handle(ctx: Ctx):
     while True:
-        data, addr = sock.recvfrom(1024)
+        data, addr = ctx.sock.recvfrom(1024)
         message = data.decode()
 
         if message.startswith("SHARE"):
-            handle_share(sock, addr, message)
+            handle_share(ctx, addr, message)
         elif message.startswith("LEAVE"):
-            handle_leave(addr, message)
+            handle_leave(ctx, message)
         else:
             logging.error(f"unhandled method {message.split()[0]}")
 
 
-def main():
+def main(args: Args):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    sock.bind(("0.0.0.0", PORT))
-    logging.info(f"Tracker running on port {PORT}")
+    ctx = Ctx(
+        sock=sock,
+        peers={},
+    )
 
-    threading.Thread(target=handle, args=(sock,), daemon=True).start()
+    sock.bind(("0.0.0.0", args.port))
+    logging.info(f"Tracker running on port {args.port}")
+
+    threading.Thread(target=handle, args=(ctx,), daemon=True).start()
 
     try:
         while True:
@@ -81,4 +94,8 @@ if __name__ == "__main__":
         format="%(asctime)s [%(levelname)s]: %(message)s", level=logging.DEBUG
     )
 
-    main()
+    args = Args(
+        port=14100,
+    )
+
+    main(args)

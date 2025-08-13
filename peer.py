@@ -35,15 +35,6 @@ def inet(address: str):
     return (ip, int(port))
 
 
-def listen(sock):
-    while True:
-        try:
-            data, addr = sock.recvfrom(1024)
-            logging.info(f"received from {addr}: {data.decode()}")
-        except:
-            break
-
-
 def signal_punch_msg(ctx: Ctx):
     assert ctx.peer_inet is not None
 
