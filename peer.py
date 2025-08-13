@@ -46,13 +46,13 @@ def signal_punch_msg(ctx: Ctx):
         time.sleep(0.5)
 
     if ctx.is_sender:
-        msg = f"MSG Hello to peer {ctx.peer_id} from {ctx.id}"
+        msg = f"MSG Hello to {ctx.peer_id} from {ctx.id}"
         ctx.sock.sendto(msg.encode(), ctx.peer_inet)
 
 
 def handle_peer(ctx: Ctx, message: str):
     peer_id, peer_address = message.split()[1:3]
-    logging.info(f"peer {peer_id}({peer_address}) is acked")
+    logging.info(f"{peer_id}({peer_address}) is acked")
 
     peer_inet = inet(peer_address)
     ctx.peer_inet = peer_inet
