@@ -6,7 +6,7 @@ import logging
 PORT = 14100
 
 # [id] = addr
-CLIENTS = {}
+PEERS = {}
 
 
 def address(addr: str, port: int):
@@ -14,8 +14,8 @@ def address(addr: str, port: int):
 
 
 def signal_shared(sock: socket.socket):
-    peer1_addr = CLIENTS["peer1"]
-    peer2_addr = CLIENTS["peer2"]
+    peer1_addr = PEERS["peer1"]
+    peer2_addr = PEERS["peer2"]
 
     peer1_address = address(*peer1_addr)
     peer2_address = address(*peer2_addr)
@@ -27,11 +27,25 @@ def signal_shared(sock: socket.socket):
     logging.info(f"peer peer2{peer2_addr} is signalled shared")
 
 
-def handle_share(addr, message):
+def handle_share(sock, addr, message):
     id = message.split()[1]
 
-    CLIENTS[id] = addr
+    PEERS[id] = addr
     logging.info(f"{id} registered from {addr}")
+
+    if "peer1" in PEERS and "peer2" in PEERS:
+        signal_shared(sock)
+
+
+def handle_leave(addr, message):
+    id = message.split()[1]
+
+    if id in PEERS:
+        peer_addr = PEERS[id]
+        logging.info(f"peer {id}{peer_addr} deleted")
+        del PEERS[id]
+    else:
+        logging.warning(f"peer {id} does not exist")
 
 
 def handle(sock: socket.socket):
@@ -40,10 +54,11 @@ def handle(sock: socket.socket):
         message = data.decode()
 
         if message.startswith("SHARE"):
-            handle_share(addr, message)
-
-        if "peer1" in CLIENTS and "peer2" in CLIENTS:
-            signal_shared(sock)
+            handle_share(sock, addr, message)
+        elif message.startswith("LEAVE"):
+            handle_leave(addr, message)
+        else:
+            logging.error(f"unhandled method {message.split()[0]}")
 
 
 def main():

@@ -21,31 +21,43 @@ def listen(sock):
     while True:
         try:
             data, addr = sock.recvfrom(1024)
-            logging.info(f"Received from {addr}: {data.decode()}")
+            logging.info(f"received from {addr}: {data.decode()}")
         except:
             break
 
 
-def handle_shared(sock: socket.socket, msg: str):
-    method, peer_addr = msg.split()[0:2]
-    logging.info(f"Peer is signalled {method} with addr {peer_addr}")
+def handle_shared(sock: socket.socket, message: str):
+    logging.info(f"peer is signalled shared")
+
+
+def signal_share(args: Args, sock: socket.socket):
+    tracker = address(args.tracker_ip, args.tracker_port)
+    sock.sendto(f"SHARE {args.id}".encode(), tracker)
+    logging.info(f"peer {args.id} sent SHARE to {tracker}")
+
+
+def signal_leave(args: Args, sock: socket.socket):
+    tracker = address(args.tracker_ip, args.tracker_port)
+    sock.sendto(f"LEAVE {args.id}".encode(), tracker)
+    logging.info(f"peer {args.id} sent LEAVE to {tracker}")
 
 
 def main(args: Args):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(("", 0))  # OS chooses port
 
-    tracker = address(args.tracker_ip, args.tracker_port)
-    sock.sendto(f"SHARE {args.id}".encode(), tracker)
-    logging.info(f"peer {args.id} sent SHARE to {tracker}")
+    signal_share(args, sock)
 
-    # signalled shared
-    data, _ = sock.recvfrom(1024)
-    msg = data.decode()
-    method = msg.split()[0]
+    while True:
+        data, _ = sock.recvfrom(1024)
+        message = data.decode()
 
-    if method == "SHARED":
-        handle_shared(sock, msg)
+        if message.startswith("SHARED"):
+            handle_shared(sock, message)
+            signal_leave(args, sock)
+            break
+        else:
+            logging.error(f"unhandled method {message.split()[0]}")
 
     # threading.Thread(target=listen, daemon=True, args=(sock,)).start()
 
