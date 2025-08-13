@@ -21,28 +21,32 @@ def address(addr: str, port: int):
     return f"{addr}:{port}"
 
 
-def signal_shared(ctx: Ctx):
-    peer1_addr = ctx.peers["peer1"]
-    peer2_addr = ctx.peers["peer2"]
+def signal_peer(ctx: Ctx, id: str, peer_id: str):
+    peer_s_addr = ctx.peers[id]
+    peer_r_addr = ctx.peers[peer_id]
 
-    peer1_address = address(*peer1_addr)
-    peer2_address = address(*peer2_addr)
+    peer_s_address = address(*peer_s_addr)
+    peer_r_address = address(*peer_r_addr)
 
-    ctx.sock.sendto(f"SHARED peer2 {peer2_address}".encode(), peer1_addr)
-    logging.info(f"peer peer1{peer1_addr} is signalled shared")
+    ctx.sock.sendto(f"PEER {peer_id} {peer_r_address}".encode(), peer_s_addr)
+    logging.info(f"peer{{{id}{peer_s_addr}}} is peered receiver {peer_id}{peer_r_addr}")
 
-    ctx.sock.sendto(f"SHARED peer1 {peer1_address}".encode(), peer2_addr)
-    logging.info(f"peer peer2{peer2_addr} is signalled shared")
+    ctx.sock.sendto(f"PEER {id} {peer_s_address}".encode(), peer_r_addr)
+    logging.info(f"peer{{{peer_id}{peer_r_addr}}} is peered sender {id}{peer_s_addr}")
 
 
 def handle_share(ctx: Ctx, addr, message):
     id = message.split()[1]
 
     ctx.peers[id] = addr
-    logging.info(f"{id} registered from {addr}")
+    logging.info(f"peer{{{id}}} registered from {addr}")
 
-    if "peer1" in ctx.peers and "peer2" in ctx.peers:
-        signal_shared(ctx)
+
+def handle_peer(ctx: Ctx, addr, message):
+    id, peer_id = message.split()[1:3]
+
+    if peer_id in ctx.peers:
+        signal_peer(ctx, id, peer_id)
 
 
 def handle_leave(ctx: Ctx, message):
@@ -50,10 +54,10 @@ def handle_leave(ctx: Ctx, message):
 
     if id in ctx.peers:
         peer_addr = ctx.peers[id]
-        logging.info(f"peer {id}{peer_addr} deleted")
+        logging.info(f"peer{{{id}{peer_addr}}} deleted")
         del ctx.peers[id]
     else:
-        logging.warning(f"peer {id} does not exist")
+        logging.warning(f"peer{{{id}}} does not exist")
 
 
 def handle(ctx: Ctx):
@@ -63,6 +67,8 @@ def handle(ctx: Ctx):
 
         if message.startswith("SHARE"):
             handle_share(ctx, addr, message)
+        elif message.startswith("PEER"):
+            handle_peer(ctx, addr, message)
         elif message.startswith("LEAVE"):
             handle_leave(ctx, message)
         else:
@@ -70,6 +76,8 @@ def handle(ctx: Ctx):
 
 
 def main(args: Args):
+    logging.debug(f"{args}")
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     ctx = Ctx(
@@ -78,7 +86,7 @@ def main(args: Args):
     )
 
     sock.bind(("0.0.0.0", args.port))
-    logging.info(f"Tracker running on port {args.port}")
+    logging.info(f"tracker running on port {args.port}")
 
     threading.Thread(target=handle, args=(ctx,), daemon=True).start()
 
