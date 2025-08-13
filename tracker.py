@@ -9,28 +9,41 @@ PORT = 14100
 CLIENTS = {}
 
 
-def signal_peers(sock):
+def address(addr: str, port: int):
+    return f"{addr}:{port}"
+
+
+def signal_shared(sock: socket.socket):
     peer1_addr = CLIENTS["peer1"]
     peer2_addr = CLIENTS["peer2"]
-    # sender_addr = f"{CLIENTS['receiver'][0]} {CLIENTS['receiver'][1]}"
-    # receiver_addr = f"{CLIENTS['sender'][0]} {CLIENTS['sender'][1]}"
-    sock.sendto(peer1_addr.encode(), f"REGISTERED {peer2_addr}")
-    sock.sendto(peer2_addr.encode(), f"REGISTERED {peer1_addr}")
+
+    peer1_address = address(*peer1_addr)
+    peer2_address = address(*peer2_addr)
+
+    sock.sendto(f"SHARED {peer2_address}".encode(), peer1_addr)
+    logging.info(f"peer peer1{peer1_addr} is signalled shared")
+
+    sock.sendto(f"SHARED {peer1_address}".encode(), peer2_addr)
+    logging.info(f"peer peer2{peer2_addr} is signalled shared")
 
 
-def handle_client(sock):
+def handle_share(addr, message):
+    id = message.split()[1]
+
+    CLIENTS[id] = addr
+    logging.info(f"{id} registered from {addr}")
+
+
+def handle(sock: socket.socket):
     while True:
         data, addr = sock.recvfrom(1024)
         message = data.decode()
 
-        if message.startswith("REGISTER"):
-            id = message.split()[1]
+        if message.startswith("SHARE"):
+            handle_share(addr, message)
 
-            CLIENTS[id] = addr
-            logging.info(f"{id} registered from {addr}")
-
-            if "peer1" in CLIENTS and "peer2" in CLIENTS:
-                signal_peers(sock)
+        if "peer1" in CLIENTS and "peer2" in CLIENTS:
+            signal_shared(sock)
 
 
 def main():
@@ -39,7 +52,7 @@ def main():
     sock.bind(("0.0.0.0", PORT))
     logging.info(f"Tracker running on port {PORT}")
 
-    threading.Thread(target=handle_client, args=(sock,), daemon=True).start()
+    threading.Thread(target=handle, args=(sock,), daemon=True).start()
 
     try:
         while True:
@@ -48,9 +61,9 @@ def main():
         pass
 
 
-logging.basicConfig(
-    format="%(asctime)s [%(levelname)s]: %(message)s", level=logging.DEBUG
-)
-
 if __name__ == "__main__":
+    logging.basicConfig(
+        format="%(asctime)s [%(levelname)s]: %(message)s", level=logging.DEBUG
+    )
+
     main()
