@@ -1,32 +1,56 @@
 import socket
 import threading
 
-clients = {}
+import logging
+
+PORT = 14100
+
+# [id] = addr
+CLIENTS = {}
+
+
+def signal_peers(sock):
+    peer1_addr = CLIENTS["peer1"]
+    peer2_addr = CLIENTS["peer2"]
+    # sender_addr = f"{CLIENTS['receiver'][0]} {CLIENTS['receiver'][1]}"
+    # receiver_addr = f"{CLIENTS['sender'][0]} {CLIENTS['sender'][1]}"
+    sock.sendto(peer1_addr.encode(), f"REGISTERED {peer2_addr}")
+    sock.sendto(peer2_addr.encode(), f"REGISTERED {peer1_addr}")
 
 
 def handle_client(sock):
     while True:
         data, addr = sock.recvfrom(1024)
         message = data.decode()
+
         if message.startswith("REGISTER"):
-            role = message.split()[1]
-            clients[role] = addr
-            print(f"{role} registered from {addr}")
-            if "sender" in clients and "receiver" in clients:
-                # Send peer info to both
-                sender_addr = f"{clients['receiver'][0]} {clients['receiver'][1]}"
-                receiver_addr = f"{clients['sender'][0]} {clients['sender'][1]}"
-                sock.sendto(sender_addr.encode(), clients["sender"])
-                sock.sendto(receiver_addr.encode(), clients["receiver"])
+            id = message.split()[1]
+
+            CLIENTS[id] = addr
+            logging.info(f"{id} registered from {addr}")
+
+            if "peer1" in CLIENTS and "peer2" in CLIENTS:
+                signal_peers(sock)
 
 
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock.bind(("0.0.0.0", 9999))
-print("Tracker running on port 9999")
-threading.Thread(target=handle_client, args=(sock,), daemon=True).start()
+def main():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-try:
-    while True:
+    sock.bind(("0.0.0.0", PORT))
+    logging.info(f"Tracker running on port {PORT}")
+
+    threading.Thread(target=handle_client, args=(sock,), daemon=True).start()
+
+    try:
+        while True:
+            pass
+    except KeyboardInterrupt:
         pass
-except KeyboardInterrupt:
-    pass
+
+
+logging.basicConfig(
+    format="%(asctime)s [%(levelname)s]: %(message)s", level=logging.DEBUG
+)
+
+if __name__ == "__main__":
+    main()
