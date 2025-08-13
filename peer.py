@@ -4,6 +4,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
+from typing import Tuple
 
 
 @dataclass
@@ -11,10 +12,27 @@ class Args:
     tracker_ip: str
     tracker_port: int
     id: str
+    peer_id: str
 
 
-def address(addr: str, port: int):
-    return (addr, port)
+@dataclass
+class Ctx:
+    sock: socket.socket
+    tracker_inet: Tuple[str, int]
+    id: str
+    peer_id: str
+    peer_inet: Tuple[str, int] | None
+    leave: bool
+    punch_thread: threading.Thread | None
+
+
+def address(ip: str, port: int):
+    return (ip, port)
+
+
+def inet(address: str):
+    ip, port = address.split(":")
+    return (ip, int(port))
 
 
 def listen(sock):
@@ -26,51 +44,87 @@ def listen(sock):
             break
 
 
-def handle_shared(sock: socket.socket, message: str):
-    logging.info(f"peer is signalled shared")
+def signal_punch_msg(ctx: Ctx):
+    assert ctx.peer_inet is not None
+
+    for _ in range(5):
+        ctx.sock.sendto(b"PUNCH", ctx.peer_inet)
+        logging.info(f"punched {ctx.peer_id}{ctx.peer_inet}")
+        time.sleep(0.5)
+
+    ctx.sock.sendto(
+        f"MSG Hello to peer {ctx.peer_id} from {ctx.id}".encode(), ctx.peer_inet
+    )
 
 
-def signal_share(args: Args, sock: socket.socket):
-    tracker = address(args.tracker_ip, args.tracker_port)
-    sock.sendto(f"SHARE {args.id}".encode(), tracker)
-    logging.info(f"peer {args.id} sent SHARE to {tracker}")
+def handle_shared(ctx: Ctx, message: str):
+    peer_id, peer_address = message.split()[1:3]
+    logging.info(f"peer {peer_id}({peer_address}) is shared")
+
+    peer_inet = inet(peer_address)
+    ctx.peer_inet = peer_inet
+
+    ctx.punch_thread = threading.Thread(
+        target=signal_punch_msg, args=(ctx,), daemon=True
+    )
+
+    ctx.punch_thread.start()
 
 
-def signal_leave(args: Args, sock: socket.socket):
-    tracker = address(args.tracker_ip, args.tracker_port)
-    sock.sendto(f"LEAVE {args.id}".encode(), tracker)
-    logging.info(f"peer {args.id} sent LEAVE to {tracker}")
+def signal_share(ctx: Ctx):
+    ctx.sock.sendto(f"SHARE {args.id}".encode(), ctx.tracker_inet)
+    logging.info(f"sent SHARE to {ctx.tracker_inet}")
+
+
+def signal_leave(ctx: Ctx):
+    ctx.sock.sendto(f"LEAVE {args.id}".encode(), ctx.tracker_inet)
+    logging.info(f"sent LEAVE to {ctx.tracker_inet}")
+
+
+def handle_punch(ctx: Ctx, addr):
+    logging.info(f"PUNCH from {addr}")
+
+
+def handle_msg(ctx: Ctx, addr, message: str):
+    msg = message[4:]
+    logging.info(f"MSG from {addr}: {msg}")
+    ctx.leave = True
 
 
 def main(args: Args):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(("", 0))  # OS chooses port
 
-    signal_share(args, sock)
+    ctx = Ctx(
+        sock=sock,
+        tracker_inet=(args.tracker_ip, args.tracker_port),
+        id=args.id,
+        peer_id=args.peer_id,
+        peer_inet=None,
+        leave=False,
+        punch_thread=None,
+    )
 
-    while True:
-        data, _ = sock.recvfrom(1024)
+    signal_share(ctx)
+
+    while not ctx.leave:
+        data, addr = sock.recvfrom(1024)
         message = data.decode()
 
         if message.startswith("SHARED"):
-            handle_shared(sock, message)
-            signal_leave(args, sock)
-            break
+            handle_shared(ctx, message)
+        elif message.startswith("PUNCH"):
+            handle_punch(ctx, addr)
+        elif message.startswith("MSG"):
+            handle_msg(ctx, addr, message)
         else:
             logging.error(f"unhandled method {message.split()[0]}")
 
-    # threading.Thread(target=listen, daemon=True, args=(sock,)).start()
+    if ctx.punch_thread is not None:
+        ctx.punch_thread.join()
+        ctx.punch_thread = None
 
-    # # Send punching packets to peer
-    # for _ in range(5):
-    #     sock.sendto(b"hole punch", (peer_ip, peer_port))
-    #     time.sleep(0.5)
-
-    # # Send actual message
-    # sock.sendto(b"Hello from sender", (peer_ip, peer_port))
-
-    # while True:
-    #     time.sleep(1)
+    signal_leave(ctx)
 
 
 if __name__ == "__main__":
@@ -82,6 +136,7 @@ if __name__ == "__main__":
         tracker_ip="localhost",
         tracker_port=14100,
         id=sys.argv[1],
+        peer_id=sys.argv[2],
     )
 
     main(args)

@@ -20,10 +20,10 @@ def signal_shared(sock: socket.socket):
     peer1_address = address(*peer1_addr)
     peer2_address = address(*peer2_addr)
 
-    sock.sendto(f"SHARED {peer2_address}".encode(), peer1_addr)
+    sock.sendto(f"SHARED peer2 {peer2_address}".encode(), peer1_addr)
     logging.info(f"peer peer1{peer1_addr} is signalled shared")
 
-    sock.sendto(f"SHARED {peer1_address}".encode(), peer2_addr)
+    sock.sendto(f"SHARED peer1 {peer1_address}".encode(), peer2_addr)
     logging.info(f"peer peer2{peer2_addr} is signalled shared")
 
 
