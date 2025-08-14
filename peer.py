@@ -134,17 +134,24 @@ def main(args: Args):
         ctx.punch_thread = None
 
 
+def parse_args():
+    tracker_ip, port = sys.argv[1].split(":")
+    port = int(port)
+
+    return Args(
+        tracker_ip=tracker_ip,
+        tracker_port=port,
+        id=sys.argv[2],
+        peer_id=sys.argv[3],
+        is_sender=(sys.argv[4] == "True"),
+    )
+
+
 if __name__ == "__main__":
     logging.basicConfig(
         format="%(asctime)s [%(levelname)s]: %(message)s", level=logging.DEBUG
     )
 
-    args = Args(
-        tracker_ip="localhost",
-        tracker_port=14100,
-        id=sys.argv[1],
-        peer_id=sys.argv[2],
-        is_sender=(sys.argv[3] == "True"),
-    )
+    args = parse_args()
 
     main(args)

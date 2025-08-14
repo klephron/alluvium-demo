@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import socket
+import sys
 import threading
 
 import logging
@@ -29,10 +30,14 @@ def signal_peer(ctx: Ctx, id: str, peer_id: str):
     peer_r_address = address(*peer_r_addr)
 
     ctx.sock.sendto(f"PEER {peer_id} {peer_r_address}".encode(), peer_s_addr)
-    logging.info(f"peer{{{id}{peer_s_addr}}} is peered receiver {peer_id}{peer_r_addr}")
+    logging.info(
+        f"peer{{{id}{peer_s_addr}}} is peered with receiver {peer_id}{peer_r_addr}"
+    )
 
     ctx.sock.sendto(f"PEER {id} {peer_s_address}".encode(), peer_r_addr)
-    logging.info(f"peer{{{peer_id}{peer_r_addr}}} is peered sender {id}{peer_s_addr}")
+    logging.info(
+        f"peer{{{peer_id}{peer_r_addr}}} is peered with sender {id}{peer_s_addr}"
+    )
 
 
 def handle_share(ctx: Ctx, addr, message):
@@ -42,8 +47,9 @@ def handle_share(ctx: Ctx, addr, message):
     logging.info(f"peer{{{id}}} registered from {addr}")
 
 
-def handle_peer(ctx: Ctx, addr, message):
+def handle_peer(ctx: Ctx, message):
     id, peer_id = message.split()[1:3]
+    logging.info(f"peer{{{id}}} requested peer{{{peer_id}}}")
 
     if peer_id in ctx.peers:
         signal_peer(ctx, id, peer_id)
@@ -54,8 +60,8 @@ def handle_leave(ctx: Ctx, message):
 
     if id in ctx.peers:
         peer_addr = ctx.peers[id]
-        logging.info(f"peer{{{id}{peer_addr}}} deleted")
         del ctx.peers[id]
+        logging.info(f"peer{{{id}{peer_addr}}} deleted")
     else:
         logging.warning(f"peer{{{id}}} does not exist")
 
@@ -68,7 +74,7 @@ def handle(ctx: Ctx):
         if message.startswith("SHARE"):
             handle_share(ctx, addr, message)
         elif message.startswith("PEER"):
-            handle_peer(ctx, addr, message)
+            handle_peer(ctx, message)
         elif message.startswith("LEAVE"):
             handle_leave(ctx, message)
         else:
@@ -97,13 +103,19 @@ def main(args: Args):
         pass
 
 
+def parse_args():
+    port = int(sys.argv[1])
+
+    return Args(
+        port=port,
+    )
+
+
 if __name__ == "__main__":
     logging.basicConfig(
         format="%(asctime)s [%(levelname)s]: %(message)s", level=logging.DEBUG
     )
 
-    args = Args(
-        port=14100,
-    )
+    args = parse_args()
 
     main(args)
