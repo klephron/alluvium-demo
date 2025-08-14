@@ -10,12 +10,14 @@ from typing import Tuple
 @dataclass
 class Args:
     port: int
+    public_ip: str  # used when localhost connection is ack
 
 
 @dataclass
 class Ctx:
     sock: socket.socket
     peers: dict[str, Tuple[str, int]]
+    public_ip: str
 
 
 def address(addr: str, port: int):
@@ -40,10 +42,16 @@ def signal_peer(ctx: Ctx, id: str, peer_id: str):
     )
 
 
-def handle_share(ctx: Ctx, addr, message):
+def handle_share(ctx: Ctx, addr: Tuple[str, int], message):
     id = message.split()[1]
 
+    # replace localhost with public ip (ipv4)
+    if addr[0] != ctx.public_ip and addr[0] == "127.0.0.1":
+        addr = (ctx.public_ip, addr[1])
+        logging.debug(f"peer{{{id}}} updated ip 127.0.0.1 with {ctx.public_ip}")
+
     ctx.peers[id] = addr
+
     logging.info(f"peer{{{id}}} registered from {addr}")
 
 
@@ -89,6 +97,7 @@ def main(args: Args):
     ctx = Ctx(
         sock=sock,
         peers={},
+        public_ip=args.public_ip,
     )
 
     sock.bind(("0.0.0.0", args.port))
@@ -108,6 +117,7 @@ def parse_args():
 
     return Args(
         port=port,
+        public_ip=sys.argv[2],
     )
 
 
