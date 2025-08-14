@@ -13,7 +13,7 @@ class Args:
     tracker_port: int
     id: str
     peer_id: str
-    is_sender: bool
+    msg: str | None
 
 
 @dataclass
@@ -25,7 +25,7 @@ class Ctx:
     peer_inet: Tuple[str, int] | None
     leave: bool
     punch_thread: threading.Thread | None
-    is_sender: bool
+    msg: str | None
 
 
 def address(ip: str, port: int):
@@ -45,9 +45,8 @@ def signal_punch_msg(ctx: Ctx):
         logging.info(f"punched {ctx.peer_id}{ctx.peer_inet}")
         time.sleep(0.5)
 
-    if ctx.is_sender:
-        msg = f"MSG Hello to {ctx.peer_id} from {ctx.id}"
-        ctx.sock.sendto(msg.encode(), ctx.peer_inet)
+    if ctx.msg is not None:
+        ctx.sock.sendto(f"MSG {ctx.msg}".encode(), ctx.peer_inet)
 
 
 def handle_peer(ctx: Ctx, message: str):
@@ -106,14 +105,14 @@ def main(args: Args):
         peer_inet=None,
         leave=False,
         punch_thread=None,
-        is_sender=args.is_sender,
+        msg=args.msg,
     )
 
     signal_share(ctx)
 
     time.sleep(2)
 
-    if ctx.is_sender:
+    if ctx.msg is not None:
         signal_peer(ctx)
 
     while not ctx.leave:
@@ -138,12 +137,17 @@ def parse_args():
     tracker_ip, port = sys.argv[1].split(":")
     port = int(port)
 
+    if len(sys.argv) == 5:
+        msg = sys.argv[4]
+    else:
+        msg = None
+
     return Args(
         tracker_ip=tracker_ip,
         tracker_port=port,
         id=sys.argv[2],
         peer_id=sys.argv[3],
-        is_sender=(sys.argv[4] == "True"),
+        msg=msg,
     )
 
 
