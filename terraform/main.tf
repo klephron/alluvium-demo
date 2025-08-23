@@ -1,62 +1,95 @@
+locals {
+  ubuntu_base_source = "/home/nikit/vms/images/focal-server-cloudimg-amd64-disk-kvm.img"
+  pools_path_prefix  = "/opt/alluvium/demo"
+  pools_disks        = "alluvium-demo-disks"
+  pools_images       = "alluvium-demo-images"
+}
+
 module "vm" {
   source = "git@github.com:klephron/alluvium-terraform-selfhosted.git"
 
   pools = {
     images = {
-      alluvium-demo-images = {
-        path = "/opt/alluvium/demo/images"
+      "${local.pools_images}" = {
+        path = "${local.pools_path_prefix}/images"
       },
     }
     disks = {
-      alluvium-demo-disks = {
-        path = "/opt/alluvium/demo/disks"
+      "${local.pools_disks}" = {
+        path = "${local.pools_path_prefix}/disks"
       }
     }
   }
   vms = {
     ubuntu = {
-      client-sender = {
+      net-1-r = {
         pools = {
-          images = "alluvium-demo-images"
-          disks  = "alluvium-demo-disks"
+          images = local.pools_images
+          disks  = local.pools_disks
         }
         base = {
-          source = "/home/nikit/vms/images/focal-server-cloudimg-amd64-disk-kvm.img"
+          source = local.ubuntu_base_source
         }
-        vcpu      = 2
-        memory    = 2048
-        disk_size = 30
-        hostfwd   = []
-      }
-      client-receiver = {
-        pools = {
-          images = "alluvium-demo-images"
-          disks  = "alluvium-demo-disks"
-        }
-        base = {
-          source = "/home/nikit/vms/images/focal-server-cloudimg-amd64-disk-kvm.img"
-        }
-        vcpu      = 2
-        memory    = 2048
-        disk_size = 30
-        hostfwd   = []
-      }
-      tracker = {
-        pools = {
-          images = "alluvium-demo-images"
-          disks  = "alluvium-demo-disks"
-        }
-        base = {
-          source = "/home/nikit/vms/images/focal-server-cloudimg-amd64-disk-kvm.img"
-        }
-        vcpu      = 2
-        memory    = 2048
+        vcpu      = 1
+        memory    = 1024
         disk_size = 30
         hostfwd = [
-          {
-            from = 9999
-            to   = 9999
-          }
+        ]
+      }
+      net-1-c = {
+        pools = {
+          images = local.pools_images
+          disks  = local.pools_disks
+        }
+        base = {
+          source = local.ubuntu_base_source
+        }
+        vcpu      = 1
+        memory    = 1024
+        disk_size = 30
+        hostfwd = [
+        ]
+      }
+      net-2-r = {
+        pools = {
+          images = local.pools_images
+          disks  = local.pools_disks
+        }
+        base = {
+          source = local.ubuntu_base_source
+        }
+        vcpu      = 1
+        memory    = 1024
+        disk_size = 30
+        hostfwd = [
+        ]
+      }
+      net-2-c = {
+        pools = {
+          images = local.pools_images
+          disks  = local.pools_disks
+        }
+        base = {
+          source = local.ubuntu_base_source
+        }
+        vcpu      = 1
+        memory    = 1024
+        disk_size = 30
+        hostfwd = [
+        ]
+      }
+      net-3-c = {
+        pools = {
+          images = local.pools_images
+          disks  = local.pools_disks
+        }
+        base = {
+          source = local.ubuntu_base_source
+        }
+        vcpu      = 1
+        memory    = 1024
+        disk_size = 30
+        hostfwd = [
         ]
       }
     }
