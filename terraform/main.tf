@@ -1,5 +1,5 @@
 locals {
-  ubuntu_base_source = "/home/nikit/vms/images/focal-server-cloudimg-amd64-disk-kvm.img"
+  ubuntu_base_source = "/home/nikit/vms/images/noble-server-cloudimg-amd64.img"
   pools_path_prefix  = "/opt/alluvium/demo"
   pools_disks        = "alluvium-demo-disks"
   pools_images       = "alluvium-demo-images"
