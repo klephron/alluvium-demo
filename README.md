@@ -15,7 +15,7 @@ Destroy:
 terraform destroy
 ```
 
-> Update terraform locals in `main.tf` in necessary.
+> Update terraform variables if necessary.
 
 ## VM Network configuration
 
@@ -109,8 +109,8 @@ Tracker: `alluvium-demo-3-c` - uses public ip.
 - It is **not endpoint-independent** (cone).
 - It is also **not pure symmetric** in the strict RFC sense.
 - Behavior:
-    - If the **inside host sends first**, conntrack reuses the same external port for the new destination.
-    - If the **outside peer sends first**, conntrack has no state and will later allocate a new port → mapping divergence.
+  - If the **inside host sends first**, conntrack reuses the same external port for the new destination.
+  - If the **outside peer sends first**, conntrack has no state and will later allocate a new port → mapping divergence.
 
 This means:
 
