@@ -1,3 +1,3 @@
 output "vms" {
-  value = module.vm.vms
+  value = module.selfhosted.vms
 }
